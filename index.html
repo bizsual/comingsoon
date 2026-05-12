@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>Bizsual</title>
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/svg+xml" href="bonlylogo.svg" />
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@500&display=swap" rel="stylesheet" />
+
+  <style>
+    /* ─── Reset ─────────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --fuchsia:          #ed145b;
+      --white:            #ffffff;
+      /*
+        Belt height scales with viewport width.
+        clamp(min, preferred, max)
+        At 320 px wide → 70 px  (tiny phones)
+        At 768 px wide → 107 px (tablets)
+        At 1280 px wide → 180 px (desktop)
+      */
+      --belt-h: clamp(120px, 20vw, 180px);
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+    }
+
+    body {
+      background-color: var(--fuchsia);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100dvh;
+      font-family: 'DM Mono', monospace;
+      position: relative;
+    }
+
+    /* Subtle noise grain for depth */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+      opacity: 0.04;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ─── Stage ──────────────────────────────────────────────────── */
+    .stage {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: clamp(24px, 5vw, 52px);
+      /* nudge upward by half the belt so it's visually centred above the skyline */
+      margin-bottom: calc(var(--belt-h) * 0.55);
+      animation: fadeUp .9s cubic-bezier(.16,1,.3,1) both;
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(22px); }
+      to   { opacity: 1; transform: translateY(0);    }
+    }
+
+    /* ─── Eyebrow ────────────────────────────────────────────────── */
+    .eyebrow {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      animation: fadeUp .9s .08s cubic-bezier(.16,1,.3,1) both;
+    }
+
+    .eyebrow-top {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: clamp(14px, 2.8vw, 22px);
+      letter-spacing: .22em;
+      color: var(--white);
+      text-transform: uppercase;
+      opacity: .95;
+    }
+
+    .eyebrow-counties {
+      display: flex;
+      align-items: center;
+      gap: clamp(8px, 1.6vw, 18px);
+      font-family: 'DM Mono', monospace;
+      font-size: clamp(9px, 1.5vw, 13px);
+      letter-spacing: .18em;
+      color: var(--white);
+      text-transform: uppercase;
+      opacity: .65;
+    }
+
+    .eyebrow-counties .sep {
+      opacity: .5;
+      font-size: 1.1em;
+    }
+
+    /* ─── Logo ───────────────────────────────────────────────────── */
+    .logo-wrap img {
+      width: clamp(160px, 42vw, 420px);
+      height: auto;
+      display: block;
+      filter: drop-shadow(0 4px 28px rgba(0,0,0,.2));
+    }
+
+    /* ─── COOKING label ──────────────────────────────────────────── */
+    .cooking-wrap {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      animation: fadeUp .9s .32s cubic-bezier(.16,1,.3,1) both;
+    }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--white);
+      flex-shrink: 0;
+      animation: blink 1.15s ease-in-out infinite;
+    }
+
+    @keyframes blink {
+      0%, 100% { opacity: 1;    transform: scale(1);   }
+      50%       { opacity: 0.12; transform: scale(.65); }
+    }
+
+    .cooking-label {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: clamp(12px, 2.4vw, 18px);
+      letter-spacing: .38em;
+      color: var(--white);
+      text-transform: uppercase;
+      animation: textBlink 1.15s ease-in-out infinite;
+    }
+
+    @keyframes textBlink {
+      0%, 100% { opacity: .9; }
+      50%       { opacity: .25; }
+    }
+
+    /* ─── Cityscape Belt ─────────────────────────────────────────── */
+    /*
+      HOW THE SEAMLESS LOOP WORKS
+      ───────────────────────────
+      • background-repeat: repeat-x tiles the SVG infinitely left→right.
+        The browser handles every viewport width automatically — no clones needed.
+
+      • JS resolves the SVG aspect ratio (see script below) and sets
+        background-size to exactly {tileWidth}px 100%.  One tile is now
+        a known, fixed number of pixels wide.
+
+      • The @keyframe scrolls background-position-x from 0 → -{tileWidth}px.
+        At that endpoint, repeat-x means the image looks identical to 0px,
+        so the loop restart is mathematically invisible — no gap, ever.
+
+      • ResizeObserver re-runs this calculation whenever the belt element
+        changes size (viewport resize, orientation change, etc.), keeping
+        the tile width correct at every breakpoint.
+
+      WHY GAPS APPEARED ON MOBILE
+      ───────────────────────────
+      The old version ran the calculation once at load with the desktop
+      height.  On mobile the belt is shorter (clamp reduces it), so each
+      tile is narrower — but the keyframe still used the desktop pixel value,
+      leaving a gap equal to the difference.  ResizeObserver fixes this.
+    */
+    .belt-track {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      height: var(--belt-h);
+      z-index: 2;
+
+      /* SVG tiled horizontally, scaled to full belt height */
+      background-image:    url('cityscape.svg');
+      background-repeat:   repeat-x;
+      background-size:     auto 100%;   /* JS overwrites this with exact px */
+      background-position: 0 bottom;
+
+      /*
+        Pure white silhouette:
+        brightness(0) collapses every colour channel to 0 (black).
+        invert(1) flips black → white.
+        Alpha / transparent areas are untouched.
+      */
+      filter: brightness(0) invert(1);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ── Main stage ───────────────────────────────────────────────── -->
+  <main class="stage" role="main" aria-label="Bizsual — Coming Soon">
+
+    <div class="eyebrow" aria-label="South Florida Tri-County Area — Palm Beach, Broward, Miami-Dade">
+      <p class="eyebrow-top">South Florida Tri-County Area</p>
+      <p class="eyebrow-counties">
+        <span>Palm Beach</span>
+        <span class="sep">·</span>
+        <span>Broward</span>
+        <span class="sep">·</span>
+        <span>Miami-Dade</span>
+      </p>
+    </div>
+
+    <div class="logo-wrap">
+      <img
+        src="bizsuallogowhite.svg"
+        alt="Bizsual — Kings of Local Marketing"
+        width="420"
+        height="120"
+        draggable="false"
+      />
+    </div>
+
+    <div class="cooking-wrap" aria-label="Website coming soon">
+      <span class="dot" aria-hidden="true"></span>
+      <span class="cooking-label">Cooking</span>
+      <span class="dot" aria-hidden="true" style="animation-delay:.57s"></span>
+    </div>
+
+  </main>
+
+  <!-- ── Cityscape belt ───────────────────────────────────────────── -->
+  <div class="belt-track" id="belt" aria-hidden="true"></div>
+
+  <script>
+  (function () {
+    'use strict';
+
+    var belt       = document.getElementById('belt');
+    var PX_PER_SEC = 60;   /* scrolling speed: pixels per second (constant across all sizes) */
+    var lastTileW  = 0;    /* track previous value to avoid pointless restarts */
+    var svgRatio   = 0;    /* aspect ratio of cityscape.svg, resolved once */
+
+    /* ── 1. Resolve the SVG aspect ratio ──────────────────────────
+       We try three strategies in order of reliability:
+       a) Image.naturalWidth / naturalHeight  (works in most browsers)
+       b) Parse the viewBox attribute from the SVG source (fallback for
+          mobile browsers that return 0 for SVGs without explicit w/h)
+       c) Hard-coded wide ratio guess (last resort)
+    ─────────────────────────────────────────────────────────────── */
+    function resolveRatio(callback) {
+
+      /* Strategy A — Image element */
+      var img = new Image();
+
+      img.onload = function () {
+        if (img.naturalWidth && img.naturalHeight) {
+          callback(img.naturalWidth / img.naturalHeight);
+          return;
+        }
+        /* naturalWidth is 0 → try strategy B */
+        parseViewBox(callback);
+      };
+
+      img.onerror = function () { parseViewBox(callback); };
+      img.src = 'cityscape.svg';
+    }
+
+    /* Strategy B — fetch SVG text and read viewBox */
+    function parseViewBox(callback) {
+      fetch('cityscape.svg')
+        .then(function (r) { return r.text(); })
+        .then(function (text) {
+          var m = text.match(/viewBox=["']\s*([\d.]+)[\s,]+([\d.]+)[\s,]+([\d.]+)[\s,]+([\d.]+)\s*["']/i);
+          if (m) {
+            var vbW = parseFloat(m[3]);
+            var vbH = parseFloat(m[4]);
+            if (vbW && vbH) { callback(vbW / vbH); return; }
+          }
+          /* Strategy C — wide panoramic guess */
+          callback(8);
+        })
+        .catch(function () { callback(8); });
+    }
+
+    /* ── 2. Apply belt at the current element height ───────────────
+       Called once on load, then on every resize via ResizeObserver.
+    ─────────────────────────────────────────────────────────────── */
+    function applyBelt() {
+      if (!svgRatio) return;                    /* ratio not ready yet */
+
+      var beltH = belt.offsetHeight;
+      if (!beltH) return;
+
+      var tileW = Math.round(beltH * svgRatio); /* exact tile width in px */
+      if (!tileW) return;
+
+      /* Update background-size so one tile = tileW px wide */
+      belt.style.backgroundSize = tileW + 'px 100%';
+
+      /* Only restart the animation when the tile width actually changed.
+         This avoids a flash on minor repaints. */
+      if (tileW === lastTileW) return;
+      lastTileW = tileW;
+
+      /* Duration = tileW ÷ PX_PER_SEC → constant apparent speed at all sizes */
+      var duration = (tileW / PX_PER_SEC).toFixed(3);
+
+      /* Unique keyframe name per tile width so we never collide */
+      var kfName = 'belt_' + tileW;
+
+      injectKeyframe(
+        kfName,
+        'from { background-position-x: 0px }' +
+        'to   { background-position-x: -' + tileW + 'px }'
+      );
+
+      /* Force animation restart by briefly clearing it */
+      belt.style.animation = 'none';
+      void belt.offsetWidth; /* flush */
+      belt.style.animation  = kfName + ' ' + duration + 's linear infinite';
+    }
+
+    /* ── 3. Inject a @keyframes rule ───────────────────────────────
+       Uses adoptedStyleSheets (modern) with a <style> tag fallback
+       for older Safari.  Deduplicated by name so we don't leak rules.
+    ─────────────────────────────────────────────────────────────── */
+    var injectedKF = {};
+
+    function injectKeyframe(name, body) {
+      if (injectedKF[name]) return;
+      injectedKF[name] = true;
+
+      var rule = '@keyframes ' + name + ' { ' + body + ' }';
+
+      try {
+        var sheet = new CSSStyleSheet();
+        sheet.replaceSync(rule);
+        document.adoptedStyleSheets =
+          (document.adoptedStyleSheets || []).concat(sheet);
+      } catch (e) {
+        /* Safari < 16.4 */
+        var tag = document.createElement('style');
+        tag.textContent = rule;
+        document.head.appendChild(tag);
+      }
+    }
+
+    /* ── 4. Boot ────────────────────────────────────────────────────
+       1. Resolve the ratio once.
+       2. Run applyBelt immediately.
+       3. Watch the element with ResizeObserver — fires on every
+          viewport/orientation change so the tile width stays exact.
+    ─────────────────────────────────────────────────────────────── */
+    function boot() {
+      resolveRatio(function (ratio) {
+        svgRatio = ratio;
+        applyBelt();
+
+        if (window.ResizeObserver) {
+          new ResizeObserver(applyBelt).observe(belt);
+        } else {
+          /* Fallback: throttled resize listener for old browsers */
+          var t;
+          window.addEventListener('resize', function () {
+            clearTimeout(t);
+            t = setTimeout(applyBelt, 80);
+          });
+        }
+      });
+    }
+
+    if (document.readyState === 'complete') {
+      boot();
+    } else {
+      window.addEventListener('load', boot);
+    }
+  })();
+  </script>
+
+</body>
+</html>
